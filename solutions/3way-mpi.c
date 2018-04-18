@@ -1,124 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h> //will need for data analysis?
-#include <mpi.h>
 
 
-#define SIZEOF_WIKI_ENTRIES 1000000000 /*The number of wiki entries*/
-#define WIKI_STRINGS 5000              /*The length of a chars in the entries. big arbitrary num
-                                        * because of newlines and ending chars. */
-#define WORDS_FOUND 100000             /*The number of words to found. Number was a guess */
-#define WORDS_LENGTH 26                /*The length of the words found. */
+unsigned match_count (char *str1, char *str2) 
+{
+unsigned i;
 
-
-//The array to hold wiki info
-char wiki_array[SIZEOF_WIKI_ENTRIES][WIKI_STRINGS];
-
-//words to find
-char words_array[WORDS_FOUND][WORDS_LENGTH];
-
-
-void readWiki(){
-
-  //keep track of what line in
-  int lineNum = 0;
-  char * line = malloc(WIKI_STRINGS);
-  // read in the wiki txt file
-  char *fileName = "C:\Users\alecp\Documents\CIS520\625\wiki_dump.txt" //Path will need to be different
-  FILE* file = fopen(fileName, "r");
-
-  if(file == NULL){
-    printf("Error in opening file");
-    return;
-  }
-  while(fgets(line, WIKI_STRINGS, file) != NULL){
-    strcpy(wiki_array[lineNum],  line);
-    lineNum++;
-  }
-  fclose(file);
-  free(line);
-
+    for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
+        if(str1[i] != str2[i]) {
+            return i;
+        }
+    }
+        
+    return i;
 }
 
-void findSubString(){
 
-  int i, j;
-    int found_word = 0; // Assume that the word has not been found (false).
-
-    for(i = 0; i < WORDS_ARRAY_SIZE; i++)
-    {
-      found_word = 0; // Assume that the word has not been found (false).
-      for(j = 0; j < WIKI_ARRAY_SIZE; j++)
-      {
-        /*strstr is a C standard library string function as defined in string.h.
-        strstr() has the function signature
-        char * strstr(const char *haystack, const char *needle);
-        which returns a pointer to a character at
-        the first index where needle is in haystack, or NULL if not present.
-        wiki_array = haystack; words_array = needle; */
-
-        char *wordsInWiki = strstr(wiki_array[j], words_array[i]);
-        if(wordsInWiki)
+unsigned find_longest_substr(char *str1, char *str2, char *write_to)
+{
+unsigned cnt;
+unsigned longest_length;
+char *ptr1 = str1;
+    
+    for(; *str2; str1 = ptr1, str2++ ) {
+        for(; *str1; str1++ )
         {
-          // If this is the first time that the word has been found
-          if (found_word == 0)
-          {
-            // Set found_word to true. Print out the word alongside its line number.
-            found_word = 1;
-            printf("%s: %d", words_array[i], j + 1);
-          }
-          // Else, the word has been found before. Append it to the existing string.
-          else
-          {
-            printf(", %d", j + 1);
-          }
+            cnt = match_count(str1,str2);
+            if(strlen(write_to) < cnt ) {
+                longest_length = cnt;
+                strncpy(write_to, str1, cnt);
+            }
         }
-      }
-      if (found_word) printf("\n"); // Get ready for the next word by adding a newline.
-  }
-
+    }
+    
+    return longest_length;
 }
 
 
+void scan_file(char *filename)
+{
+    printf("Filename is <%s>\n", filename);
+}
 
-//found this in pt2.c
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
 
-  int i, rc;
-  int numtasks, rank;
-  MPI_Status Status;
-
-
-  rc = MPI_Init(&argc,&argv);
-  if (rc != MPI_SUCCESS) {
-    printf ("Error starting MPI program. Terminating.\n");
-          MPI_Abort(MPI_COMM_WORLD, rc);
-        }
-
-        MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
-        MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-
-  NUM_THREADS = numtasks;
-  printf("size = %d rank = %d\n", numtasks, rank);
-  fflush(stdout);
-
-  if ( rank == 0 ) {
-    init_arrays();
+  if (argc < 2) {
+      printf("Usage: longsubstr filename\n");
   }
-  MPI_Bcast(char_array, ARRAY_SIZE * STRING_SIZE, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-  count_array(&rank);
-
-  MPI_Reduce(local_char_count, char_counts, ALPHABET_SIZE, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-
-  if ( rank == 0 ) {
-    print_results();
+  
+  else {
+    scan_file(argv[1]);
   }
-
-  MPI_Finalize();
-  return 0;
 
 
 }

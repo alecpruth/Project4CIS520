@@ -44,6 +44,41 @@ void init_arrays()
   }
 }
 
+/* Returns the number of matching characters. 
+ * Each argument string must be terminated by a null character.
+ */
+unsigned match_count (char *str1, char *str2) 
+{
+int i;
+
+    for( i=0; str1[i] & str2[i] != 0; i++) {
+        if(str1[i] != str2[i]) {
+            return i;
+        }
+    }
+        
+    return --i;
+}
+
+char *find_substr(char *str1, char *str2)
+{
+char largest_substr[500];
+char *next_char = &largest_substr[0];
+bool nomatch = true;
+
+
+    for( int i = 0; str1[i] != " "; i++)
+    {
+        if( str1[i] == str2[i] ) {
+            *next_char = str1[i];
+             next_char++;
+        }
+            
+        if(*str1 != *str2) {
+            nomatch = true;
+            str2++;
+        }
+
 void *count_array(void *rank)
 {
   char theChar;
