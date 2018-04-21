@@ -49,7 +49,7 @@ char *ptr1 = str1;
 }
 
 
-void scan_file(char *filename)
+void scan_file(char *filename, int threadID)
 {
 int fd;
 char *buf;
