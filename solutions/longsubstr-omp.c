@@ -9,10 +9,13 @@
 #include <omp.h>
 
 #define NUM_THREADS 4
+#define MAX_LINES 1000000
 
 #define BUF_SIZE 10*1024*1024
 #define LINE_COUNT_MAX 3000
 #define LINE_LENGTH_MAX 65536
+
+char ** longest_results;
 
 unsigned match_count (char *str1, char *str2) 
 {
@@ -34,6 +37,7 @@ unsigned cnt;
 unsigned longest_length;
 char *ptr1 = str1;
     
+	//omp private here too?
     for(; *str2; str1 = ptr1, str2++ ) {
         for(; *str1; str1++ )
         {
@@ -49,7 +53,7 @@ char *ptr1 = str1;
 }
 
 
-void scan_file(char *filename, int threadID)
+/*void scan_file(char **lines, int threadID)
 {
 int fd;
 char *buf;
@@ -95,6 +99,75 @@ int i;
 		free(longest_substr);
 	}
     
+}*/
+
+void scan_file(char ** line, int id)
+{
+	int i,j,cnt;
+	char * longest_substr_temp;
+	int start, end;
+	
+	#pragma omp private(i,j,cnt,longest_substr_temp,start,end)
+	{
+		//Indicates what section of lines the thread is responsible for covering
+		//Found in pt1_openmp_critical.c
+		//Might need to fix the bug of not working right if sections don't divide cleanly
+		start = id * (MAX_LINES/NUM_THREADS);
+		end = start + (MAX_LINES/NUM_THREADS);
+		
+		for(i = start; i < end; i++){
+			cnt = find_longest_substr(line[i],line[i+1],longest_substr_temp);
+			#pragma omp critical
+			{
+				strncpy(longest_results[i],longest_substr_temp,cnt);
+			}
+		}
+		
+		if(end != MAX_LINES){
+			cnt = find_longest_substr(line[end],line[end+1],longest_substr_temp);
+			#pragma omp critical
+			{
+				strncpy(longest_results[end],longest_substr_temp,cnt);
+			}
+		}
+	}
+}
+
+/*
+*	This method reads in the wikipedia lines and initializes the memory for the longest substrings.
+*	The code for this method was taken from the file find_keys.c, provided to us by Professor Andresen
+*/
+(char **) init_arrays(char * filename)
+{
+	int fd, i, nlines, err;
+	char ** lines;
+	
+	longest_results = malloc(MAX_LINES * sizeof(char *));
+	for(i = 0; i < MAX_LINES; i++)
+	{
+		longest_results[i] = malloc(2001);
+	}
+	
+	lines = (char **) malloc(MAX_LINES * sizeof(char *));
+	for(i = 0; i < MAX_LINES; i++){
+		lines[i] = malloc(2001);
+	}
+	
+	fd = fopen(filename, "r");
+	nlines = -1;
+	do{
+		err = fscanf( fd, "%[^\n]\n", lines[++nlines] );
+	}while(err != EOF && nlines < MAX_LINES);
+	fclose(fd);
+	return lines;
+}
+
+void print_results(){
+	int i;
+	
+	for(i = 0; i < MAX_LINES; i++){
+		printf("<%d> and <%d> : <%s>\n", i, i+1, longest_results[i]);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -106,11 +179,16 @@ int main(int argc, char *argv[])
   
   else {
 	omp_set_num_threads(NUM_THREADS);
+	
+	char ** wiki_lines = init_arrays(argv[1]);
+	
 	#pragma omp parallel
 	{
-		scan_file(argv[1],omp_get_thread_num());
+		scan_file(wiki_lines,omp_get_thread_num());
 	}
-    //scan_file(argv[1]);
+	
+	print_results();
+	//free everything?
   }
 
 
