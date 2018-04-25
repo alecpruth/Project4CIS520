@@ -21,6 +21,8 @@ unsigned match_count (char *str1, char *str2)
 {
 unsigned i;
 
+	#pragma omp private(i)
+	{
     for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
         if(str1[i] != str2[i]) {
             return i;
@@ -28,6 +30,7 @@ unsigned i;
     }
         
     return i;
+	}
 }
 
 
@@ -37,8 +40,8 @@ unsigned cnt;
 unsigned longest_length;
 char *ptr1;
     
-	//omp private here too?
-	#pragma omp private(cnt, longest_length,ptr1){
+	#pragma omp private(cnt, longest_length,ptr1)
+	{
 		ptr1 = str1;
 		for(; *str2; str1 = ptr1, str2++ ) {
 			for(; *str1; str1++ )
@@ -113,9 +116,6 @@ void scan_file(char ** line, int id)
 	
 	#pragma omp private(i,j,cnt,longest_substr_temp,start,end,comp)
 	{
-		//Indicates what section of lines the thread is responsible for covering
-		//Found in pt1_openmp_critical.c
-		//Might need to fix the bug of not working right if sections don't divide cleanly
 		comp = MAX_LINES/NUM_THREADS;
 		start = id * (comp);
 		end = start + (comp);
