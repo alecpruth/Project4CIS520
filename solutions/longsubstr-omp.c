@@ -110,7 +110,8 @@ int i;
 
 void scan_file(char ** line, int id)
 {
-	int i,j,cnt;
+	int i,j;
+	unsigned cnt;
 	char * longest_substr_temp[4096];
 	int start, end, comp;
 	
