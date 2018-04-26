@@ -56,6 +56,10 @@ char *next;
 char *longest_substr;
 
     buf = (char *)malloc(BUF_SIZE);
+	if(buf == NULL){
+		perror("malloc failed!\n");
+		exit(-1);
+	}
     line_ptrs = (char **)malloc(LINE_COUNT_MAX);
     memset(buf, 0, BUF_SIZE);
     // printf("Filename is <%s>\n", filename);

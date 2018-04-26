@@ -120,13 +120,13 @@ void scan_file(char ** line, int id)
 		comp = MAX_LINES/NUM_THREADS;
 		start = id * (comp);
 		end = start + (comp);
-		if((MAX_LINES%comp != 0) && (end + comp == MAX_LINES)){
+		if((MAX_LINES%comp != 0) && (end + comp >= MAX_LINES)){
 			end = MAX_LINES;
 		}
 		
 		for(i = start; i < end-1; i++){
 			//memset(longest_substr_temp, 0, LINE_LENGTH_MAX);
-			cnt = find_longest_substr(line[i],line[i+1],&longest_substr_temp[0]);
+			cnt = find_longest_substr(line[i],line[i+1],&longest_substr_temp);
 			#pragma omp critical
 			{
 				strncpy(longest_results[i],longest_substr_temp,cnt);
@@ -135,7 +135,7 @@ void scan_file(char ** line, int id)
 		
 		if(end != MAX_LINES){
 			//memset(longest_substr_temp, 0, LINE_LENGTH_MAX);
-			cnt = find_longest_substr(line[end-1],line[end],&longest_substr_temp[0]);
+			cnt = find_longest_substr(line[end-1],line[end],&longest_substr_temp);
 			#pragma omp critical
 			{
 				strncpy(longest_results[end],longest_substr_temp,cnt);
