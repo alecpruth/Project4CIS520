@@ -54,54 +54,6 @@ char *ptr1 = str1;
 }
 
 
-/*void scan_file(char **lines, int threadID)
-{
-int fd;
-char *buf;
-char **line_ptrs;
-char *first_line;
-char *next_line;
-char *next;
-char *longest_substr;
-int i;
-
-	#pragma omp private (fd, buf, line_ptrs,first_line,next_line,next,longest_substr,i)
-	{
-		buf = (char *)malloc(BUF_SIZE);
-		line_ptrs = (char **)malloc(LINE_COUNT_MAX);
-		longest_substr = (char *)malloc(LINE_LENGTH_MAX);
-		memset(buf, 0, BUF_SIZE);
-		// printf("Filename is <%s>\n", filename);
-		fd = open(filename, O_RDONLY);
-		if(fd == -1) {
-			perror("Could not open file!");
-		}
-		read(fd, buf, BUF_SIZE);
-		
-		first_line = strtok_r(buf, "\n", &next);
-		line_ptrs[0] = first_line;
-		//printf("line 0: <%s>\n", first_line);
-		
-		for(i = 1; next_line != NULL; i++ ) {
-			next_line = strtok_r(NULL, "\n", &next);
-			line_ptrs[i] = next_line;
-			//printf("line %d: <%s>\n", i, next_line);
-		}
-		
-		for(i = 0; line_ptrs[i] != NULL && line_ptrs[i+1] != NULL; i++) {
-			//printf("line %d: <%s>\n", i, line_ptrs[i]);
-			memset(longest_substr, 0, LINE_LENGTH_MAX);
-			find_longest_substr(line_ptrs[i], line_ptrs[i+1], longest_substr);
-			printf("<%d> and <%d> : <%s>\n", i, i+1, longest_substr);
-		}
-		
-		free(buf);
-		free(line_ptrs);
-		free(longest_substr);
-	}
-    
-}*/
-
 void scan_file(char ** line, int id)
 {
 	int i,j,cnt;
@@ -182,7 +134,7 @@ int main(int argc, char *argv[])
       
     rc = MPI_Init(&argc,&argv);
     
-    char ** wiki_lines = init_arrays(argv[1]);
+    char ** wiki_lines; 
     
 	if (rc != MPI_SUCCESS) {
 	  printf ("Error starting MPI program. Terminating.\n");
@@ -193,11 +145,11 @@ int main(int argc, char *argv[])
         MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
 	NUM_THREADS = numtasks;
+    
 	printf("size = %d rank = %d\n", numtasks, rank);
-	fflush(stdout);
 
 	if ( rank == 0 ) {
-		init_arrays();
+		wiki_lines = init_arrays(argv[1]);
 	}
     
     
@@ -210,11 +162,11 @@ int main(int argc, char *argv[])
 
 char ** longest_results;*/
 
-	MPI_Bcast(wiki_lines, BUF_SIZE * LINE_LENGTH_MAX, MPI_CHAR, 0, MPI_COMM_WORLD); //Still don't know what params to pass
+	//MPI_Bcast(wiki_lines, BUF_SIZE * MAX_LINES, MPI_CHAR, 0, MPI_COMM_WORLD); //Still don't know what params to pass
 		
 	scan_file(wiki_lines, &rank);
 
-	MPI_Reduce(longest_results, wiki_lines, ALPHABET_SIZE, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD); //Still don't know what params to pass
+	//MPI_Reduce(longest_results, wiki_lines, LINE_LENGTH_MAX, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD); //Still don't know what params to pass
 
 
 	if ( rank == 0 ) {
