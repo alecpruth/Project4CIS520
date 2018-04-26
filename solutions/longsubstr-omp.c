@@ -21,6 +21,8 @@ unsigned match_count (char *str1, char *str2)
 {
 unsigned i;
 
+	#pragma omp private(i)
+	{
     for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
         if(str1[i] != str2[i]) {
             return i;
@@ -28,6 +30,7 @@ unsigned i;
     }
         
     return i;
+	}
 }
 
 
@@ -35,21 +38,25 @@ unsigned find_longest_substr(char *str1, char *str2, char *write_to)
 {
 unsigned cnt;
 unsigned longest_length;
-char *ptr1 = str1;
+char *ptr1;
     
-	//omp private here too?
-    for(; *str2; str1 = ptr1, str2++ ) {
-        for(; *str1; str1++ )
-        {
-            cnt = match_count(str1,str2);
-            if(strlen(write_to) < cnt ) {
+	#pragma omp private(cnt, longest_length,ptr1)
+	{
+		ptr1 = str1;
+		for(; *str2; str1 = ptr1, str2++ ) {
+			for(; *str1; str1++ )
+			{
+				cnt = match_count(str1,str2);
+				if(strlen(write_to) < cnt ) {
                 longest_length = cnt;
                 strncpy(write_to, str1, cnt);
-            }
-        }
-    }
+				}
+			}
+		}
     
-    return longest_length;
+		return longest_length;
+	}
+    
 }
 
 
@@ -103,20 +110,23 @@ int i;
 
 void scan_file(char ** line, int id)
 {
-	int i,j,cnt;
-	char * longest_substr_temp;
-	int start, end;
+	int i,j;
+	unsigned cnt;
+	char * longest_substr_temp[4096];
+	int start, end, comp;
 	
-	#pragma omp private(i,j,cnt,longest_substr_temp,start,end)
+	#pragma omp private(i,j,cnt,longest_substr_temp,start,end,comp)
 	{
-		//Indicates what section of lines the thread is responsible for covering
-		//Found in pt1_openmp_critical.c
-		//Might need to fix the bug of not working right if sections don't divide cleanly
-		start = id * (MAX_LINES/NUM_THREADS);
-		end = start + (MAX_LINES/NUM_THREADS);
+		comp = MAX_LINES/NUM_THREADS;
+		start = id * (comp);
+		end = start + (comp);
+		if((MAX_LINES%comp != 0) && (end + comp == MAX_LINES)){
+			end = MAX_LINES;
+		}
 		
-		for(i = start; i < end; i++){
-			cnt = find_longest_substr(line[i],line[i+1],longest_substr_temp);
+		for(i = start; i < end-1; i++){
+			//memset(longest_substr_temp, 0, LINE_LENGTH_MAX);
+			cnt = find_longest_substr(line[i],line[i+1],&longest_substr_temp[0]);
 			#pragma omp critical
 			{
 				strncpy(longest_results[i],longest_substr_temp,cnt);
@@ -124,7 +134,8 @@ void scan_file(char ** line, int id)
 		}
 		
 		if(end != MAX_LINES){
-			cnt = find_longest_substr(line[end],line[end+1],longest_substr_temp);
+			//memset(longest_substr_temp, 0, LINE_LENGTH_MAX);
+			cnt = find_longest_substr(line[end-1],line[end],&longest_substr_temp[0]);
 			#pragma omp critical
 			{
 				strncpy(longest_results[end],longest_substr_temp,cnt);
