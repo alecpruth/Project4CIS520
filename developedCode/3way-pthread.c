@@ -81,8 +81,12 @@ char longest_substr[4096];
         unsigned longest_length = find_longest_substr(line_ptrs[i], line_ptrs[i+1], &longest_substr[0]);
         printf("<%d> and <%d> : <", i, i+1);
         fflush(stdout);
+        /*implement pthread here*/
+        
+        
         write(STDOUT_FILENO, longest_substr, longest_length);
         printf(">\n");
+        memset(&longest_substr[0], 0, sizeof(longest_substr));
         
     }
     
