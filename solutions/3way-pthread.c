@@ -8,13 +8,44 @@
 #include <errno.h>
 #include <fcntl.h>
 
-
-
 #define BUF_SIZE 10*1024*1024
-#define LINE_COUNT_MAX 10000
-#define NUM_THREADS 8
+#define LINE_COUNT_MAX 100000
+#define NUM_THREADS 2
 
-unsigned find_longest_substr(char *str1, char *str2, char *write_to);
+unsigned match_count (char *str1, char *str2) 
+{
+ unsigned i;
+
+    for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
+        if(str1[i] != str2[i]) {
+            return i;
+        }
+    }
+        
+    return i;
+}
+
+
+unsigned find_longest_substr(char *str1, char *str2, char ** write_to){
+
+unsigned cnt;
+unsigned longest_length = 0;
+char *ptr1 = str1;
+    
+    for(; *str2; str1 = ptr1, str2++ ) {
+        for(; *str1; str1++ )
+        {
+            cnt = match_count(str1,str2);
+            if(longest_length < cnt ) {
+                longest_length = cnt;
+                *write_to = str1;
+            }
+        }
+    }
+    
+    return longest_length;
+}
+
 
 typedef struct{
     char * longest_substr;
@@ -35,55 +66,24 @@ typedef struct{
 void * workFunction(void * args){
     
     workerThread * wt;
-    resultSet * set;
+    resultSet * set = NULL;
+    int i;
     char *longest_substr;
     
     wt = (workerThread *)args;
     set = wt->set;
     
-    for(int i = wt->rank-1; wt->line_ptrs[i] != NULL && wt->line_ptrs[i+1] != NULL; i += NUM_THREADS){//; set += NUM_THREADS){
+    for(i = wt->rank-1, set += i; wt->line_ptrs[i] != NULL && wt->line_ptrs[i+1] != NULL; i += NUM_THREADS, set += NUM_THREADS){
+        //printf("line %d: <%s>\n", i , wt->line_ptrs[i]);
         unsigned longest_length = find_longest_substr(wt->line_ptrs[i], wt->line_ptrs[i+1], &longest_substr);
         set->longest_substr = longest_substr;
         set->length = longest_length;
-    }
+        //getchar();
+    } 
     
     return NULL;
 }
   
-
-unsigned match_count (char *str1, char *str2) 
-{
- unsigned i;
-
-    for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
-        if(str1[i] != str2[i]) {
-            return i;
-        }
-    }
-        
-    return i;
-}
-
-unsigned find_longest_substr(char *str1, char *str2, char *write_to){
-
-unsigned cnt;
-unsigned longest_length;
-char *ptr1 = str1;
-    
-    for(; *str2; str1 = ptr1, str2++ ) {
-        for(; *str1; str1++ )
-        {
-            cnt = match_count(str1,str2);
-            if(longest_length < cnt ) {
-                longest_length = cnt;
-                *write_to = str1;
-            }
-        }
-    }
-    
-    return longest_length;
-}
-
 void scan_file(char *filename)
 {
 int fd;
@@ -92,10 +92,9 @@ char **line_ptrs;
 char *first_line;
 char *next_line;
 char *next;
-char *longest_substr;
 pthread_t workThreads[NUM_THREADS];
-resultSet * set; 
 workerThread * wt;
+resultSet * set; 
 
 
     buf = (char *)malloc(BUF_SIZE);
@@ -110,15 +109,25 @@ workerThread * wt;
         exit(-2);
     }
     
+    wt = (workerThread *)malloc(NUM_THREADS * sizeof(workerThread));
+    if(wt == NULL){
+        perror("malloc failed");
+        free(buf);
+        free(line_ptrs);
+        free(wt);
+        exit(-3);
+    }
+    
     set = (resultSet *)malloc(LINE_COUNT_MAX * sizeof(resultSet));
     if(set == NULL){
         perror("malloc failed");
         free(buf);
         free(line_ptrs);
-        exit(-3);
+        exit(-4);
     }
     
     memset(buf, 0, BUF_SIZE);
+    memset(line_ptrs, 0, LINE_COUNT_MAX * sizeof(char *));
     memset(set, 0, LINE_COUNT_MAX * sizeof(resultSet));
     // printf("Filename is <%s>\n", filename);
     fd = open(filename, O_RDONLY);
@@ -131,44 +140,29 @@ workerThread * wt;
     line_ptrs[0] = first_line;
     //printf("line 0: <%s>\n", first_line);
     
-    for(int i = 1; next_line = first_line; next_line != NULL && i < LINE_COUNT_MAX; i++) {
+    int i;
+    
+    for(i = 1, next_line = first_line; next_line != NULL && i < LINE_COUNT_MAX; i++) {
         next_line = strtok_r(NULL, "\n", &next);
         line_ptrs[i] = next_line;
         //printf("line %d: <%s>\n", i, next_line);
     }
     
-    for(int i = 1; i <= NUM_THREADS; i++){
-        wt[i].rank = i;
+    for(int i = 0; i < NUM_THREADS; i++){
+        wt[i].rank = i+1;
         wt[i].line_ptrs = line_ptrs;
         wt[i].set = set;
         
-        if(pthread_create(&workThreads, NULL, workFunction, &wt[i])){
+        if(pthread_create(&workThreads[i], NULL, workFunction, (void *)&wt[i])){
             perror("pthread failed");
         }
     }
     
-    for(int i = 1; i <= NUM_THREADS; i++){
-        pthread_join(workThreads[i], NULL);
-    }
-    free(buf);
-    free(line_ptrs);
-    return;
-    for(int i = 0; i < LINE_COUNT_MAX; i++){
+
+    for(int i = 0; i < LINE_COUNT_MAX; i++, set++){
         while(!set->length);
         printf("<%d> and <%d> : <%.*s>\n", i, i+1, set->length, set->longest_substr);
     }
-        
-   /* for(unsigned i = 0; line_ptrs[i] != NULL && line_ptrs[i+1] != NULL; i++) {
-        //printf("line %d: <%s>\n", i, line_ptrs[i]);
-        unsigned longest_length = find_longest_substr(line_ptrs[i], line_ptrs[i+1], &longest_substr[0]);
-        printf("<%d> and <%d> : <", i, i+1);
-        
-        /*
-        fflush(stdout);
-        write(STDOUT_FILENO, longest_substr, longest_length);
-        printf(">\n");*/
-        
-    
     
     free(buf);
     free(line_ptrs);

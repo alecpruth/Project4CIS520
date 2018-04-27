@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     
 	//printf("size = %d rank = %d\n", numtasks, rank);
 
-	if ( rank == MASTER ) {
+	if ( rank == 0 ) {
 		printf("MASTER: Number of MPI task is: %d\n", numtasks);
 	}
     
