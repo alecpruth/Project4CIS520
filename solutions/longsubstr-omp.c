@@ -60,7 +60,7 @@ char *ptr1;
 }
 
 
-/*void scan_file(char **lines, int threadID)
+void scan_file(char *filename, int threadID)
 {
 int fd;
 char *buf;
@@ -87,27 +87,29 @@ int i;
 		first_line = strtok_r(buf, "\n", &next);
 		line_ptrs[0] = first_line;
 		//printf("line 0: <%s>\n", first_line);
-		
+		#pragma omp for { //throws a previous declaration of free was here
 		for(i = 1; next_line != NULL; i++ ) {
 			next_line = strtok_r(NULL, "\n", &next);
 			line_ptrs[i] = next_line;
 			//printf("line %d: <%s>\n", i, next_line);
 		}
-		
+    }
+		#pragma omp for { //throws a previous declaration of free was here
 		for(i = 0; line_ptrs[i] != NULL && line_ptrs[i+1] != NULL; i++) {
 			//printf("line %d: <%s>\n", i, line_ptrs[i]);
 			memset(longest_substr, 0, LINE_LENGTH_MAX);
 			find_longest_substr(line_ptrs[i], line_ptrs[i+1], longest_substr);
 			printf("<%d> and <%d> : <%s>\n", i, i+1, longest_substr);
 		}
+    }
 		
 		free(buf);
 		free(line_ptrs);
 		free(longest_substr);
 	}
     
-}*/
-
+}
+/*
 void scan_file(char ** line, int id)
 {
 	int i,j;
@@ -142,26 +144,27 @@ void scan_file(char ** line, int id)
 			}
 		}
 	}
-}
+}*/
 
 /*
 *	This method reads in the wikipedia lines and initializes the memory for the longest substrings.
 *	The code for this method was taken from the file find_keys.c, provided to us by Professor Andresen
 */
-(char **) init_arrays(char * filename)
+char ** init_arrays(char * filename)
 {
-	int fd, i, nlines, err;
+	int i, nlines, err;
+    FILE *fd;
 	char ** lines;
 	
 	longest_results = malloc(MAX_LINES * sizeof(char *));
 	for(i = 0; i < MAX_LINES; i++)
 	{
-		longest_results[i] = malloc(2001);
+		longest_results[i] = malloc(65536);
 	}
 	
 	lines = (char **) malloc(MAX_LINES * sizeof(char *));
 	for(i = 0; i < MAX_LINES; i++){
-		lines[i] = malloc(2001);
+		lines[i] = malloc(65536);
 	}
 	
 	fd = fopen(filename, "r");
@@ -191,11 +194,11 @@ int main(int argc, char *argv[])
   else {
 	omp_set_num_threads(NUM_THREADS);
 	
-	char ** wiki_lines = init_arrays(argv[1]);
+	//char ** wiki_lines = init_arrays(argv[1]);
 	
 	#pragma omp parallel
 	{
-		scan_file(wiki_lines,omp_get_thread_num());
+		scan_file(argv[1],omp_get_thread_num());
 	}
 	
 	print_results();
