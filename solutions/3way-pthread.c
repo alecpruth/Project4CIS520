@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #define BUF_SIZE 10*1024*1024
-#define LINE_COUNT_MAX 100000
+#define LINE_COUNT_MAX 10000
 #define NUM_THREADS 2
 
 unsigned match_count (char *str1, char *str2) 
@@ -148,7 +148,7 @@ resultSet * set;
         //printf("line %d: <%s>\n", i, next_line);
     }
     
-    for(int i = 0; i < NUM_THREADS; i++){
+    for(i = 0; i < NUM_THREADS; i++){
         wt[i].rank = i+1;
         wt[i].line_ptrs = line_ptrs;
         wt[i].set = set;
@@ -159,7 +159,7 @@ resultSet * set;
     }
     
 
-    for(int i = 0; i < LINE_COUNT_MAX; i++, set++){
+    for( i = 0; i < LINE_COUNT_MAX; i++, set++){
         while(!set->length);
         printf("<%d> and <%d> : <%.*s>\n", i, i+1, set->length, set->longest_substr);
     }
