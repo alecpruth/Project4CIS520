@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #define BUF_SIZE 10*1024*1024
-#define LINE_COUNT_MAX 100000
+#define LINE_COUNT_MAX 10000
 #define NUM_THREADS 2
 
 unsigned match_count (char *str1, char *str2) 
@@ -35,7 +35,7 @@ char *ptr1 = str1;
     for(; *str2; str1 = ptr1, str2++ ) {
         for(; *str1; str1++ )
         {
-            cnt = match_count(str1,str2);
+            cnt = match_count(str1,str2);  
             if(longest_length < cnt ) {
                 longest_length = cnt;
                 *write_to = str1;
@@ -128,7 +128,7 @@ resultSet * set;
     
     memset(buf, 0, BUF_SIZE);
     memset(line_ptrs, 0, LINE_COUNT_MAX * sizeof(char *));
-    memset(set, 0, LINE_COUNT_MAX * sizeof(resultSet));
+    memset(set, -1, LINE_COUNT_MAX * sizeof(resultSet));
     // printf("Filename is <%s>\n", filename);
     fd = open(filename, O_RDONLY);
     if(fd == -1) {
@@ -148,7 +148,7 @@ resultSet * set;
         //printf("line %d: <%s>\n", i, next_line);
     }
     
-    for(int i = 0; i < NUM_THREADS; i++){
+    for(i = 0; i < NUM_THREADS; i++){
         wt[i].rank = i+1;
         wt[i].line_ptrs = line_ptrs;
         wt[i].set = set;
@@ -159,8 +159,8 @@ resultSet * set;
     }
     
 
-    for(int i = 0; i < LINE_COUNT_MAX; i++, set++){
-        while(!set->length);
+    for( i = 0; i < LINE_COUNT_MAX; i++, set++){
+        while(set->length != -1);
         printf("<%d> and <%d> : <%.*s>\n", i, i+1, set->length, set->longest_substr);
     }
     
