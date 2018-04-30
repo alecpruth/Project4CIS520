@@ -21,12 +21,8 @@
 echo '=====================JOB DIAGNOTICS========================'
 date
 NUMNODES=$(echo 1)
-NUMLINES=$(echo 3000)
-NUMTHREADS=$(echo 8)
 echo -n 'This machine is ';hostname
 echo -n 'My jobid is '; echo $SLURM_JOBID
-echo -n 'Number of nodes requested'; echo $NUMNODES
-echo -n 'Number of lines to read'; echo $NUMLINES
 echo 'My path is:'
 echo $PATH
 echo 'My job info:'
@@ -36,13 +32,10 @@ sinfo -s
 
 echo '=====================JOB STARTING=========================='
 
-### CHANGE THE LINES BELOW TO SELECT DIFFERENT MPI CODES AND/OR COMPILERS
-cd ~/Project_4/omp/
-
 #Compile an exercise code
-gcc -fopenmp -Wall -o omp_exec LSS_omp.c
+gcc -g -fopenmp 3way-openmp.c
 #Run the code pass in the program to run, ours takes filename, then number of threads and then number of lines
-srun -N1 ./omp_exec /homes/dan/625/wiki_dump.txt $NUMTHREADS $NUMLINES
+srun -N1 ./a.out /homes/dan/625/wiki_dump.txt 
 ### Issue the sleep so we have time to see the job actually running
 sleep 120
 echo ' '
