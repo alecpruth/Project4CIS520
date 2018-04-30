@@ -35,7 +35,7 @@ char *ptr1 = str1;
     for(; *str2; str1 = ptr1, str2++ ) {
         for(; *str1; str1++ )
         {
-            cnt = match_count(str1,str2);
+            cnt = match_count(str1,str2);  
             if(longest_length < cnt ) {
                 longest_length = cnt;
                 *write_to = str1;
