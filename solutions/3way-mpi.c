@@ -6,189 +6,49 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <omp.h>
+#include <pthread.h>
+#include "helperfn.c"
 #include <mpi.h>
 
-#define BUF_SIZE 10*1024*1024
+#define BUF_SIZE 200*1024*1024
 #define LINE_COUNT_MAX 100000
-#define NUM_THREADS 2
+#define LINE_LENGTH_MAX 2001
 
-unsigned match_count (char *str1, char *str2) 
+typedef struct
 {
- unsigned i;
-
-    for( i=0; str1[i] != 0 && str2[i] !=0; i++) {
-        if(str1[i] != str2[i]) {
-            return i;
-        }
-    }
-        
-    return i;
-}
-
-
-unsigned find_longest_substr(char *str1, char *str2, char ** write_to){
-
-unsigned cnt;
-unsigned longest_length = 0;
-char *ptr1 = str1;
-    
-    for(; *str2; str1 = ptr1, str2++ ) {
-        for(; *str1; str1++ )
-        {
-            cnt = match_count(str1,str2);
-            if(longest_length < cnt ) {
-                longest_length = cnt;
-                *write_to = str1;
-            }
-        }
-    }
-    
-    return longest_length;
-}
-
-
-typedef struct{
-    char * longest_substr;
-    unsigned length;
-    
-    
-}resultSet;
-
-
-typedef struct{
-    
-    int rank;
-    char ** line_ptrs;
-    resultSet * set;
-    
-} workerThread;
-
-void * workFunction(void * args){
-    
-    workerThread * wt;
-    resultSet * set = NULL;
-    int i;
-    char *longest_substr;
-    
-    wt = (workerThread *)args;
-    set = wt->set;
-    
-    for(i = wt->rank-1, set += i; wt->line_ptrs[i] != NULL && wt->line_ptrs[i+1] != NULL; i += NUM_THREADS, set += NUM_THREADS){
-        //printf("line %d: <%s>\n", i , wt->line_ptrs[i]);
-        unsigned longest_length = find_longest_substr(wt->line_ptrs[i], wt->line_ptrs[i+1], &longest_substr);
-        set->longest_substr = longest_substr;
-        set->length = longest_length;
-        //getchar();
-    } 
-    
-    return NULL;
-}
-  
-void scan_file(char *filename)
-{
-int fd;
-char *buf;
-char **line_ptrs;
-char *first_line;
-char *next_line;
-char *next;
-pthread_t workThreads[NUM_THREADS];
-workerThread * wt;
-resultSet * set; 
-
-
-    buf = (char *)malloc(BUF_SIZE);
-    if(buf == NULL){
-        perror("failed");
-        exit(-1);
-    }
-    line_ptrs = (char **)malloc(LINE_COUNT_MAX * sizeof(char *));
-    if(line_ptrs == NULL){
-        perror("malloc failed");
-        free(buf);
-        exit(-2);
-    }
-    
-    wt = (workerThread *)malloc(NUM_THREADS * sizeof(workerThread));
-    if(wt == NULL){
-        perror("malloc failed");
-        free(buf);
-        free(line_ptrs);
-        free(wt);
-        exit(-3);
-    }
-    
-    set = (resultSet *)malloc(LINE_COUNT_MAX * sizeof(resultSet));
-    if(set == NULL){
-        perror("malloc failed");
-        free(buf);
-        free(line_ptrs);
-        exit(-4);
-    }
-    
-    memset(buf, 0, BUF_SIZE);
-    memset(line_ptrs, 0, LINE_COUNT_MAX * sizeof(char *));
-    memset(set, 0, LINE_COUNT_MAX * sizeof(resultSet));
-    // printf("Filename is <%s>\n", filename);
-    fd = open(filename, O_RDONLY);
-    if(fd == -1) {
-        perror("Could not open file!");
-    }
-    read(fd, buf, BUF_SIZE);
-    
-    first_line = strtok_r(buf, "\n", &next);
-    line_ptrs[0] = first_line;
-    //printf("line 0: <%s>\n", first_line);
-    
-    int i;
-    
-    for(i = 1, next_line = first_line; next_line != NULL && i < LINE_COUNT_MAX; i++) {
-        next_line = strtok_r(NULL, "\n", &next);
-        line_ptrs[i] = next_line;
-        //printf("line %d: <%s>\n", i, next_line);
-    }
-    
-    for(int i = 0; i < NUM_THREADS; i++){
-        wt[i].rank = i+1;
-        wt[i].line_ptrs = line_ptrs;
-        wt[i].set = set;
-        
-        if(pthread_create(&workThreads[i], NULL, workFunction, (void *)&wt[i])){
-            perror("pthread failed");
-        }
-    }
-    
-
-    for(int i = 0; i < LINE_COUNT_MAX; i++, set++){
-        while(!set->length);
-        printf("<%d> and <%d> : <%.*s>\n", i, i+1, set->length, set->longest_substr);
-    }
-    
-    free(buf);
-    free(line_ptrs);
-    
-}
+    unsigned    length;
+    char        longest_substr[LINE_LENGTH_MAX];
+    unsigned    flag;
+} result_set;
 
 int main(int argc, char *argv[])
 {
-    int i;
+    int    i;
+    char * longest_substr;
+    int fd;
+    char *filename;
+    char *buf;
+    char **line_ptrs;
+    char *first_line;
+    char *next_line;
+    char *next;
+
+    result_set rset;
+    
     int rc;
-    int length;
-	int numtasks;
+	int numtasks, numWorkers;
     int rank;
-	char hostname[MPI_MAX];
+    unsigned line = 0;
+    
+	//char hostname[MPI_MAX];
     
         if (argc < 2) {
           printf("Usage: longsubstr filename\n");
-      }
-      
-      else {
+          return -1;
+        }
 
-          
+        filename = argv[1];
         rc = MPI_Init(&argc,&argv);
-        
-        
         
         if (rc != MPI_SUCCESS) {
           printf ("Error starting MPI program. Terminating.\n");
@@ -196,29 +56,77 @@ int main(int argc, char *argv[])
             }
 
             MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
-            MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-            MPI_Get_processor_name(hostname, &length);
-
-        NUM_THREADS = numtasks;
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+            //MPI_Get_processor_name(hostname, &length);
         
         //printf("size = %d rank = %d\n", numtasks, rank);
 
         if ( rank == 0 ) {
-            printf("MASTER: Number of MPI task is: %d\n", numtasks);
+            
+            //MPI_Bcast(buf, BUF_SIZE, MPI_CHAR, 0, MPI_COMM_WORLD); 
+            MPI_Barrier(MPI_COMM_WORLD);
+            // Wait for data from slave processes
+            while(line < LINE_COUNT_MAX-1) {
+                for(i = 1; i < numtasks && line < LINE_COUNT_MAX-1; i++, line++) {
+                    MPI_Recv(&rset.length, 1, MPI_UNSIGNED, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+                    MPI_Recv(&rset.longest_substr, LINE_LENGTH_MAX, MPI_CHAR, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    printf("[Thread rank %d]<%d> and <%d> : <%.*s>\n", i, line, line+1, rset.length, rset.longest_substr);  
+                    //printf("[Thread rank %d]: Length <%d>\n", 1, rset.length);  
+                }
+            }
         }
         
         else{
+            printf("MASTER: Number of MPI task is: %d\n", numtasks);
+            buf = (char *)malloc(BUF_SIZE);
+                if(buf == NULL) {
+                    perror("malloc failed!\n");
+                    exit(-1);
+                }
+            memset(buf, 0, BUF_SIZE);
+            fd = open(filename, O_RDONLY);
+                if(fd == -1) {
+                    perror("Could not open file!");
+                }
             
-            MPI_Bcast(wiki_lines, BUF_SIZE * LINE_COUNT_MAX, MPI_CHAR, 0, MPI_COMM_WORLD); //Still don't know what params to pass
+            read(fd, buf, BUF_SIZE);
             
-            workFunction();
+            MPI_Barrier(MPI_COMM_WORLD);
+            //MPI_Bcast(buf, BUF_SIZE , MPI_CHAR, 0, MPI_COMM_WORLD); 
+            //printf("Rank: <%d> <%.*s>\n", rank, BUF_SIZE, buf);
+            //printf("Slave process\n");
+            //MPI_Finalize();
+            //return 0;
+            line_ptrs = malloc( (LINE_COUNT_MAX+1) * sizeof(char *) );  // An extra field for a NULL Pointer
+                if(line_ptrs == NULL) {
+                    perror("malloc failed!\n");
+                    free(buf);
+                    exit(-2);
+                }
+        
+            memset(line_ptrs, 0, (LINE_COUNT_MAX+1) * sizeof(char *) );
             
-            //MPI_Reduce(longest_results, wiki_lines, LINE_LENGTH_MAX, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD); //Still don't know what params to pass
+            first_line = strtok_r(buf, "\n", &next);
+            line_ptrs[0] = first_line;
+            //printf("line 0: <%s>\n", first_line);
+            
+            for(i = 1, next_line = first_line; next_line != NULL && i < LINE_COUNT_MAX; i++ ) {
+                next_line = strtok_r(NULL, "\n", &next);
+                line_ptrs[i] = next_line;
+                //printf("line %d: <%s>\n", i, next_line);
+            }
+            
+            for(i = rank-1, numWorkers = numtasks-1; line_ptrs[i] != NULL && line_ptrs[i+1] != NULL && i < LINE_COUNT_MAX; i += numWorkers) {
+                //printf("line %d: <%s>\n", i, line_ptrs[i]);
+                unsigned longest_length = find_longest_substr(line_ptrs[i], line_ptrs[i+1], &longest_substr);
+                MPI_Send(&longest_length, 1, MPI_UNSIGNED, 0, rank, MPI_COMM_WORLD); 
+                MPI_Send(longest_substr, longest_length, MPI_CHAR, 0, rank, MPI_COMM_WORLD); 
+                //printf("[Thread rank %d]<%d> and <%d> : <%.*s>\n", rank, i, i+1, longest_length, longest_substr);   
+            }
         }
         
         MPI_Finalize();
-        
-      }
 
+    return 0;
 
 }

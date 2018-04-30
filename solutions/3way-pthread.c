@@ -128,7 +128,7 @@ resultSet * set;
     
     memset(buf, 0, BUF_SIZE);
     memset(line_ptrs, 0, LINE_COUNT_MAX * sizeof(char *));
-    memset(set, 0, LINE_COUNT_MAX * sizeof(resultSet));
+    memset(set, -1, LINE_COUNT_MAX * sizeof(resultSet));
     // printf("Filename is <%s>\n", filename);
     fd = open(filename, O_RDONLY);
     if(fd == -1) {
@@ -160,7 +160,7 @@ resultSet * set;
     
 
     for( i = 0; i < LINE_COUNT_MAX; i++, set++){
-        while(!set->length);
+        while(set->length != -1);
         printf("<%d> and <%d> : <%.*s>\n", i, i+1, set->length, set->longest_substr);
     }
     
