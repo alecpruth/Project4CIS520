@@ -33,7 +33,7 @@ echo '=====================JOB STARTING=========================='
 #Compile an exercise code
 gcc -w -g 3way-pthread.c -o 3way-pthread -lpthread
 #Run the code
-time srun -N1 --mem-per-cpu=200M -t16 ./longsubstr /homes/dan/625/wiki_dump.txt
+time srun -N1 --mem-per-cpu=200M -t16 ./3way-pthread /homes/dan/625/wiki_dump.txt
 
 ### Issue the sleep so we have time to see the job actually running
 sleep 120
