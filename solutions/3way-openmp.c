@@ -9,8 +9,8 @@
 #include <omp.h>
 
 #define BUF_SIZE 200*1024*1024
-#define MAX_LINES 150
-#define NUM_THREADS 3
+#define MAX_LINES 1000000
+#define NUM_THREADS 1
 
 unsigned match_count (char *str1, char *str2) 
 {
@@ -109,7 +109,7 @@ void scan_file(char * filename){
         line_ptrs[i] = next_line;
     }
 	
-	omp_set_num_threads(NUM_THREADS);
+	//omp_set_num_threads(NUM_THREADS);
 	
 	#pragma omp parallel
 	{
@@ -117,11 +117,12 @@ void scan_file(char * filename){
 		resultSet* set_temp;
 		char * longest;
 		unsigned length;
+		int thread_num = omp_get_num_threads();
 		#pragma omp private(j,set_temp,longest,length)
 		{
 			set_temp = set;
-			for(j = omp_get_thread_num(), set_temp += j; (j < MAX_LINES) && (j+1 < MAX_LINES); j += NUM_THREADS, set_temp += NUM_THREADS){
-				printf("<%d> and <%d>\n",j,j+1);
+			for(j = omp_get_thread_num(), set_temp += j; (j < MAX_LINES) && (j+1 < MAX_LINES); j += thread_num, set_temp += thread_num){
+				//printf("<%d> and <%d>\n",j,j+1);
 				length = find_longest_substr(line_ptrs[j],line_ptrs[j+1],&longest);
 				set_temp->substr = longest;
 				set_temp->length = length;
